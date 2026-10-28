@@ -10,6 +10,102 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts Inter & Noto Sans KR -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK (v11.6.1) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, getDocs, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Configuration (Global environment resolution with fallback)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'yuhan-vol-attendance';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : {
+                apiKey: "AIzaSyDemoKeyForGitHubPagesEnvOnly",
+                authDomain: "kyu-yuhan-vol.firebaseapp.com",
+                projectId: "kyu-yuhan-vol",
+                storageBucket: "kyu-yuhan-vol.appspot.com",
+                messagingSenderId: "1234567890",
+                appId: "1:1234567890:web:abcdef123456"
+            };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Firestore Path Helpers (Following Strict Rules)
+        const getStudentsColl = () => collection(db, 'artifacts', appId, 'public', 'data', 'students');
+        const getLogsColl = () => collection(db, 'artifacts', appId, 'public', 'data', 'logs');
+
+        window.db = db;
+        window.auth = auth;
+        window.appId = appId;
+        window.getStudentsColl = getStudentsColl;
+        window.getLogsColl = getLogsColl;
+        window.setDoc = setDoc;
+        window.doc = doc;
+        window.deleteDoc = deleteDoc;
+        window.onSnapshot = onSnapshot;
+
+        // Init Auth & Realtime Sync
+        async function initCloudSync() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.warn("Auth initialization fallback to anonymous mode", err);
+                try { await signInAnonymously(auth); } catch(e){}
+            }
+
+            // Realtime sync for Students
+            onSnapshot(getStudentsColl(), (snapshot) => {
+                const fetchedStudents = [];
+                snapshot.forEach(docSnap => {
+                    fetchedStudents.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                if (fetchedStudents.length > 0) {
+                    window.currentStudents = fetchedStudents;
+                } else {
+                    // Seed initial students if empty
+                    window.seedDefaultStudents();
+                }
+                window.populateDeptDropdown();
+                if (window.currentUserSession?.role === 'admin') {
+                    window.populatePrintStudentSelect();
+                    window.populateRecordStudentFilter();
+                    window.renderAdminStudentList();
+                }
+            }, (error) => console.error("Students sync error:", error));
+
+            // Realtime sync for Logs
+            onSnapshot(getLogsColl(), (snapshot) => {
+                const fetchedLogs = [];
+                snapshot.forEach(docSnap => {
+                    fetchedLogs.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                window.currentLogs = fetchedLogs.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+                
+                if (window.currentUserSession) {
+                    if (window.currentUserSession.role === 'student') {
+                        window.updateStudentStatusBadge();
+                        window.renderStudentLogsTable();
+                    } else if (window.currentUserSession.role === 'admin') {
+                        window.renderA4Sheet();
+                        window.renderAdminRecordsTable();
+                    }
+                }
+            }, (error) => console.error("Logs sync error:", error));
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initCloudSync();
+        });
+    </script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -325,13 +421,13 @@
                                 <table class="w-full border-collapse border border-black text-center text-xs">
                                     <tr>
                                         <th class="border border-black bg-slate-100 p-2 font-bold w-1/6">소 속 부 서</th>
-                                        <td class="border border-black p-2 w-2/6" id="a4-dept">기계공학과 기계시스템전공</td>
+                                        <td class="border border-black p-2 w-2/6" id="a4-dept">컴퓨터공학과</td>
                                         <th class="border border-black bg-slate-100 p-2 font-bold w-1/6">근 무 월</th>
                                         <td class="border border-black p-2 w-2/6" id="a4-month">2026년 10월</td>
                                     </tr>
                                     <tr>
                                         <th class="border border-black bg-slate-100 p-2 font-bold">학 번</th>
-                                        <td class="border border-black p-2 font-bold font-mono text-sm" id="a4-student-id">202501017</td>
+                                        <td class="border border-black p-2 font-bold font-mono text-sm" id="a4-student-id">202312045</td>
                                         <th class="border border-black bg-slate-100 p-2 font-bold">성 명 (실필 작성)</th>
                                         <td class="border border-black p-2 text-slate-400 font-normal">____________________ (인)</td>
                                     </tr>
@@ -386,7 +482,7 @@
                                 <p class="text-xs text-slate-700">위와 같이 봉사장학생의 근무 일수 및 산출 내역을 정확히 확인하고 출근부를 제출합니다.</p>
                                 <p class="text-sm font-semibold tracking-wide" id="a4-submit-date">2026년 10월 31일</p>
                                 <p class="text-xs font-bold text-right pr-6">
-                                    봉사장학생 (학번: <span id="a4-sign-student-id" class="underline underline-offset-4 font-mono ml-1 mr-2">202501017</span> / 성명: <span class="inline-block border-b border-black w-32 text-center text-slate-400 font-normal">________________</span>) : <span class="ml-2">(서명 / 인)</span>
+                                    봉사장학생 (학번: <span id="a4-sign-student-id" class="underline underline-offset-4 font-mono ml-1 mr-2">202312045</span> / 성명: <span class="inline-block border-b border-black w-32 text-center text-slate-400 font-normal">________________</span>) : <span class="ml-2">(서명 / 인)</span>
                                 </p>
                             </div>
                         </div>
@@ -451,15 +547,44 @@
                     </div>
                 </div>
 
+                <!-- Data Sync & Backup Controls -->
+                <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-4">
+                    <div class="flex items-center space-x-2 text-brand-700 font-bold text-sm border-b border-slate-100 pb-2">
+                        <i class="fa-solid fa-rotate text-brand-600"></i>
+                        <span>기기간 데이터 연동 및 백업 / 복원</span>
+                    </div>
+                    <p class="text-xs text-slate-500 leading-relaxed">
+                        현재 시스템은 브라우저 보안 정책에 따라 기기별 로컬 저장소(localStorage)를 사용합니다. 
+                        다른 기기나 브라우저 간에 데이터를 이전하거나 통합하려면 아래 **데이터 내보내기/가져오기** 기능을 활용해 주세요.
+                    </p>
+                    <div class="flex flex-wrap items-center gap-2 pt-1">
+                        <button onclick="exportDataJSON()" class="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg shadow transition flex items-center space-x-1.5">
+                            <i class="fa-solid fa-download"></i>
+                            <span>데이터 백업 (JSON 다운로드)</span>
+                        </button>
+
+                        <label class="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg shadow transition flex items-center space-x-1.5 cursor-pointer">
+                            <i class="fa-solid fa-upload"></i>
+                            <span>데이터 복원 (JSON 파일 선택)</span>
+                            <input type="file" id="import-file-input" accept=".json" onchange="importDataJSON(event)" class="hidden">
+                        </label>
+
+                        <button onclick="copyDataToClipboard()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition flex items-center space-x-1.5">
+                            <i class="fa-solid fa-copy"></i>
+                            <span>데이터 코드 복사</span>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Reset & Sample Data Controls -->
                 <div class="bg-slate-100 rounded-xl p-4 border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div>
                         <p class="font-bold text-slate-700">데이터 초기화 옵션</p>
-                        <p class="text-slate-500">기본 전체 89명 명단으로 복원하거나 출퇴근 기록을 초기화합니다.</p>
+                        <p class="text-slate-500">기본 샘플 데이터로 복원하거나 출퇴근 기록을 리셋합니다.</p>
                     </div>
                     <div class="flex items-center space-x-2">
                         <button onclick="resetToSampleData()" class="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg shadow transition">
-                            초기 데이터로 리셋
+                            샘플 데이터로 초기화
                         </button>
                     </div>
                 </div>
@@ -563,7 +688,7 @@
 
             <div class="space-y-3 text-xs">
                 <div>
-                    <label class="block font-semibold text-slate-600 mb-1">대상 학생 선택</label>
+                    <label class="block font-semibold text-slate-600 mb-1">대상 학학생 선택</label>
                     <select id="record-input-student" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg font-bold">
                         <!-- Populated dynamically -->
                     </select>
@@ -600,113 +725,37 @@
 
     <!-- JAVASCRIPT APP LOGIC -->
     <script>
-        const STORAGE_KEY_STUDENTS = 'univ_attendance_students_v4';
-        const STORAGE_KEY_LOGS = 'univ_attendance_logs_v4';
+        const STORAGE_KEY_STUDENTS = 'univ_attendance_students_v3';
+        const STORAGE_KEY_LOGS = 'univ_attendance_logs_v3';
 
-        // Full 89 Student Initial Data
+        // Sample initial student data
         const SAMPLE_STUDENTS = [
-            { id: '202501017', dept: '기계공학과 기계시스템전공' },
-            { id: '202317012', dept: '전기공학과 전기공학전공' },
-            { id: '202503016', dept: '전기공학과 전기공학전공' },
-            { id: '202304036', dept: '전기공학과 전자공학전공' },
-            { id: '202403013', dept: '전기공학과 전자공학전공' },
-            { id: '202405010', dept: '안전소방학과 산업안전전공' },
-            { id: '202405026', dept: '안전소방학과 산업안전전공' },
-            { id: '202306007', dept: '산업디자인학과' },
-            { id: '202306047', dept: '산업디자인학과' },
-            { id: '202406047', dept: '산업디자인학과' },
-            { id: '202507041', dept: '컴퓨터공학과 컴퓨터소프트웨어전공' },
-            { id: '202607007', dept: '컴퓨터공학과 컴퓨터소프트웨어전공' },
-            { id: '202508020', dept: '기계공학과 소방설비안전전공' },
-            { id: '202509053', dept: '멀티디자인학과 시각디자인전공' },
-            { id: '202509056', dept: '멀티디자인학과 시각디자인전공' },
-            { id: '202410032', dept: '식품영양학과' },
-            { id: '202510004', dept: '식품영양학과' },
-            { id: '202312049', dept: '글로벌관광학과 호텔관광전공' },
-            { id: '202512003', dept: '글로벌관광학과 호텔관광전공' },
-            { id: '202413030', dept: '글로벌관광학과 일본비즈니스전공' },
-            { id: '202613017', dept: '글로벌관광학과 일본비즈니스전공' },
-            { id: '202613001', dept: '글로벌관광학과 일본비즈니스전공' },
-            { id: '202515019', dept: '경영학과 경영정보전공' },
-            { id: '202615031', dept: '경영학과 경영정보전공' },
-            { id: '202516002', dept: '보건의료행정과' },
-            { id: '202516050', dept: '보건의료행정과' },
-            { id: '202516059', dept: '보건의료행정과' },
-            { id: '202616054', dept: '보건의료행정과' },
-            { id: '202417009', dept: 'IT정보통신학과 컴퓨터정보통신전공' },
-            { id: '202137009', dept: '애니메이션영상학과' },
-            { id: '202209024', dept: '방송미디어학과 애니메이션웹툰전공' },
-            { id: '202420074', dept: '애니메이션영상학과' },
-            { id: '202620012', dept: '방송미디어학과 애니메이션웹툰전공' },
-            { id: '202620014', dept: '방송미디어학과 애니메이션웹툰전공' },
-            { id: '202137052', dept: '패션디자인학과' },
-            { id: '202322023', dept: '패션디자인학과' },
-            { id: '202322062', dept: '패션디자인학과' },
-            { id: '202422033', dept: '패션디자인학과' },
-            { id: '202522008', dept: '생활디자인학과 패션디자인전공' },
-            { id: '202124048', dept: '실내건축학과' },
-            { id: '202424001', dept: '실내건축학과' },
-            { id: '202424045', dept: '실내건축학과' },
-            { id: '202525026', dept: '컴퓨터공학과 인공지능전공' },
-            { id: '202227039', dept: '컴퓨터소프트웨어공학과 게임콘텐츠전공' },
-            { id: '202327041', dept: '컴퓨터소프트웨어공학과 게임콘텐츠전공' },
-            { id: '202528020', dept: '건강웰니스학과 사회복지전공' },
-            { id: '202529064', dept: '호텔외식조리학과 호텔조리전공' },
-            { id: '202629045', dept: '호텔외식조리학과 호텔조리전공' },
-            { id: '202430020', dept: '사회서비스학과 아동보육전공' },
-            { id: '202520026', dept: '경영학과 세무회계전공' },
-            { id: '202631030', dept: '경영학과 세무회계전공' },
-            { id: '202633002', dept: '방송미디어학과 광고미디어전공' },
-            { id: '202335027', dept: '유한생명바이오학과 유한바이오제약전공' },
-            { id: '202435075', dept: '유한생명바이오학과 유한바이오제약전공' },
-            { id: '202438004', dept: '의료뷰티학과 피부메이크업전공' },
-            { id: '202639003', dept: '의료뷰티학과 뷰티화장품전공' },
-            { id: '202540012', dept: '호텔외식조리학과 카페베이커리전공' },
-            { id: '202540013', dept: '호텔외식조리학과 카페베이커리전공' },
-            { id: '202640067', dept: '호텔외식조리학과 카페베이커리전공' },
-            { id: '2024441037', dept: '방송미디어학과 방송영상전공' },
-            { id: '202541013', dept: '방송미디어학과 방송영상전공' },
-            { id: '202541035', dept: '방송미디어학과 방송영상전공' },
-            { id: '202641003', dept: '방송미디어학과 방송영상전공' },
-            { id: '202641039', dept: '방송미디어학과 방송영상전공' },
-            { id: '2024442010', dept: '방송미디어학과 방송문예창작전공' },
-            { id: '202542015', dept: '방송예술학과 방송문예창작전공' },
-            { id: '202642020', dept: '방송예술학과 방송문예창작전공' },
-            { id: '202644006', dept: '반려동물보건학과' },
-            { id: '202644010', dept: '반려동물보건학과' },
-            { id: '202445002', dept: '건강웰니스학과 스포츠재활전공' },
-            { id: '202545037', dept: '건강웰니스학과 스포츠재활전공' },
-            { id: '202545050', dept: '건강웰니스학과 스포츠재활전공' },
-            { id: '202545072', dept: '건강웰니스학과 스포츠재활전공' },
-            { id: '202445019', dept: '건강웰니스학과 스포츠재활전공' },
-            { id: '202646025', dept: '작업치료과' },
-            { id: '202547018', dept: '방송예술학과 방송연예전공' },
-            { id: '202647021', dept: '방송예술학과 방송연예전공' },
-            { id: '202548022', dept: '응급구조과' },
-            { id: '202548029', dept: '응급구조과' },
-            { id: '202648021', dept: '응급구조과' },
-            { id: '202648031', dept: '응급구조과' },
-            { id: '202544013', dept: '건강웰니스학과 반려동물산업전공' },
-            { id: '202649022', dept: '건강웰니스학과 반려동물산업전공' },
-            { id: '202550008', dept: '항공서비스학과' },
-            { id: '202650043', dept: '항공서비스학과' },
-            { id: '202651001', dept: '치위생과' },
-            { id: '202651009', dept: '치위생과' },
-            { id: '202651026', dept: '치위생과' },
-            { id: '202651032', dept: '치위생과' }
+            { id: '202312045', dept: '컴퓨터공학과' },
+            { id: '202411082', dept: '컴퓨터공학과' },
+            { id: '202215019', dept: '경영학과' }
         ];
 
-        let currentStudents = [];
-        let currentLogs = [];
+        window.currentStudents = SAMPLE_STUDENTS;
+        window.currentLogs = [];
 
         // Current Session State: { role: 'student' | 'admin', studentId?: string, dept?: string }
         let currentUserSession = null;
+        window.currentUserSession = currentUserSession;
 
         window.addEventListener('DOMContentLoaded', () => {
             initClock();
-            loadLocalStorageData();
+            loadLocalStorageFallback();
             populateDeptDropdown();
         });
+
+        async function seedDefaultStudents() {
+            if (!window.db || !window.auth.currentUser) return;
+            SAMPLE_STUDENTS.forEach(async (st) => {
+                const ref = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'students', st.id);
+                await window.setDoc(ref, { dept: st.dept }, { merge: true });
+            });
+        }
+        window.seedDefaultStudents = seedDefaultStudents;
 
         function initClock() {
             const updateClock = () => {
@@ -734,65 +783,24 @@
             setInterval(updateClock, 1000);
         }
 
-        function loadLocalStorageData() {
+        function loadLocalStorageFallback() {
             const storedStudents = localStorage.getItem(STORAGE_KEY_STUDENTS);
             if (storedStudents) {
-                currentStudents = JSON.parse(storedStudents);
-            } else {
-                currentStudents = SAMPLE_STUDENTS;
-                localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(currentStudents));
+                window.currentStudents = JSON.parse(storedStudents);
             }
-
             const storedLogs = localStorage.getItem(STORAGE_KEY_LOGS);
             if (storedLogs) {
-                currentLogs = JSON.parse(storedLogs);
-            } else {
-                currentLogs = generateSampleLogs();
-                localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(currentLogs));
+                window.currentLogs = JSON.parse(storedLogs);
             }
-        }
-
-        function generateSampleLogs() {
-            const logs = [];
-            const student = SAMPLE_STUDENTS[0];
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth();
-
-            const sampleDays = [2, 4, 7, 9, 11, 14, 16, 18, 21, 23, 25];
-            sampleDays.forEach(day => {
-                if (day <= now.getDate()) {
-                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    logs.push({
-                        id: 'log_' + Math.random().toString(36).substr(2, 9),
-                        studentId: student.id,
-                        dept: student.dept,
-                        type: '출근',
-                        timestamp: `${dateStr} 09:00:15`,
-                        date: dateStr,
-                        time: '09:00',
-                        note: '정시 출근'
-                    });
-                    logs.push({
-                        id: 'log_' + Math.random().toString(36).substr(2, 9),
-                        studentId: student.id,
-                        dept: student.dept,
-                        type: '퇴근',
-                        timestamp: `${dateStr} 13:00:40`,
-                        date: dateStr,
-                        time: '13:00',
-                        note: '주요 업무 완료'
-                    });
-                }
-            });
-            return logs;
         }
 
         function populateDeptDropdown() {
             const select = document.getElementById('login-dept-select');
+            if (!select) return;
             select.innerHTML = '';
 
-            const depts = [...new Set(currentStudents.map(s => s.dept))];
+            // Get unique departments
+            const depts = [...new Set(window.currentStudents.map(s => s.dept))];
             if (depts.length === 0) {
                 select.innerHTML = '<option value="">등록된 학과가 없습니다</option>';
                 return;
@@ -805,6 +813,7 @@
                 select.appendChild(opt);
             });
         }
+        window.populateDeptDropdown = populateDeptDropdown;
 
         function setLoginMode(mode) {
             const studentTab = document.getElementById('tab-login-student');
@@ -830,7 +839,7 @@
             const dept = document.getElementById('login-dept-select').value;
             const inputPw = document.getElementById('login-student-pw').value.trim();
 
-            const student = currentStudents.find(s => s.dept === dept && s.id === inputPw);
+            const student = window.currentStudents.find(s => s.dept === dept && s.id === inputPw);
 
             if (!student) {
                 alert('일치하는 학생 정보를 찾을 수 없습니다.\n선택하신 소속 학과와 비밀번호(학번)를 다시 확인해 주세요.');
@@ -842,6 +851,7 @@
                 studentId: student.id,
                 dept: student.dept
             };
+            window.currentUserSession = currentUserSession;
 
             launchApp();
         }
@@ -855,6 +865,7 @@
                 currentUserSession = {
                     role: 'admin'
                 };
+                window.currentUserSession = currentUserSession;
                 launchApp();
             } else {
                 alert('관리자 아이디 또는 비밀번호가 올바르지 않습니다.');
@@ -926,11 +937,13 @@
         }
 
         function updateStudentStatusBadge() {
+            if (!currentUserSession || currentUserSession.role !== 'student') return;
             const todayStr = new Date().toISOString().split('T')[0];
-            const myTodayLogs = currentLogs.filter(l => l.studentId === currentUserSession.studentId && l.date === todayStr);
+            const myTodayLogs = window.currentLogs.filter(l => l.studentId === currentUserSession.studentId && l.date === todayStr);
 
             const badge = document.getElementById('clock-status-badge');
-            const lastLog = myTodayLogs[myTodayLogs.length - 1];
+            if (!badge) return;
+            const lastLog = myTodayLogs[0]; // Filtered logs are sorted descending
 
             if (!lastLog) {
                 badge.textContent = '오늘 미출근';
@@ -943,8 +956,9 @@
                 badge.className = 'font-bold text-sm text-rose-600';
             }
         }
+        window.updateStudentStatusBadge = updateStudentStatusBadge;
 
-        function handleClockAction(type) {
+        async function handleClockAction(type) {
             if (!currentUserSession || currentUserSession.role !== 'student') return;
 
             const noteInput = document.getElementById('clock-note');
@@ -961,8 +975,8 @@
             const seconds = String(now.getSeconds()).padStart(2, '0');
             const timeStr = `${hours}:${minutes}`;
 
+            const logId = 'log_' + Date.now();
             const newLog = {
-                id: 'log_' + Date.now(),
                 studentId: currentUserSession.studentId,
                 dept: currentUserSession.dept,
                 type: type,
@@ -972,21 +986,29 @@
                 note: noteText || (type === '출근' ? '출근 처리' : '퇴근 처리')
             };
 
-            currentLogs.unshift(newLog);
-            localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(currentLogs));
+            // Cloud Save
+            if (window.db && window.auth.currentUser) {
+                const ref = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'logs', logId);
+                await window.setDoc(ref, newLog);
+            }
+
+            // Local State Backup
+            window.currentLogs.unshift({ id: logId, ...newLog });
+            localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(window.currentLogs));
 
             noteInput.value = '';
             updateStudentStatusBadge();
             renderStudentLogsTable();
 
-            alert(`${type} 처리가 성공적으로 기록되었습니다. (${timeStr})`);
+            alert(`${type} 처리가 성공적으로 기록 및 연동되었습니다. (${timeStr})`);
         }
 
         function renderStudentLogsTable() {
             const tbody = document.getElementById('student-my-logs-tbody');
+            if (!tbody) return;
             tbody.innerHTML = '';
 
-            const myLogs = currentLogs.filter(l => l.studentId === currentUserSession.studentId).slice(0, 10);
+            const myLogs = window.currentLogs.filter(l => l.studentId === currentUserSession.studentId).slice(0, 10);
 
             if (myLogs.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-slate-400">출/퇴근 내역이 아직 없습니다.</td></tr>`;
@@ -1011,25 +1033,28 @@
                 tbody.appendChild(tr);
             });
         }
+        window.renderStudentLogsTable = renderStudentLogsTable;
 
         function populatePrintStudentSelect() {
             const printStudentSelect = document.getElementById('print-student-select');
+            if (!printStudentSelect) return;
             printStudentSelect.innerHTML = '';
 
-            currentStudents.forEach(st => {
+            window.currentStudents.forEach(st => {
                 const opt = document.createElement('option');
                 opt.value = st.id;
                 opt.textContent = `${st.id} (${st.dept})`;
                 printStudentSelect.appendChild(opt);
             });
         }
+        window.populatePrintStudentSelect = populatePrintStudentSelect;
 
         function renderA4Sheet() {
             const monthVal = document.getElementById('print-month-select').value;
             const studentId = document.getElementById('print-student-select').value;
             const hourlyWage = parseInt(document.getElementById('hourly-wage-input').value) || 0;
 
-            const student = currentStudents.find(s => s.id === studentId);
+            const student = window.currentStudents.find(s => s.id === studentId);
             if (!student || !monthVal) return;
 
             const [yearStr, monthStr] = monthVal.split('-');
@@ -1044,7 +1069,7 @@
             const lastDay = new Date(year, month, 0).getDate();
             document.getElementById('a4-submit-date').textContent = `${year}년 ${month}월 ${lastDay}일`;
 
-            const studentLogs = currentLogs.filter(l => {
+            const studentLogs = window.currentLogs.filter(l => {
                 if (l.studentId !== student.id) return false;
                 const logDate = new Date(l.date);
                 return logDate.getFullYear() === year && (logDate.getMonth() + 1) === month;
@@ -1129,41 +1154,17 @@
             document.getElementById('calc-wage-str').textContent = `${hourlyWage.toLocaleString()}원`;
             document.getElementById('calc-scholarship-total').textContent = `${scholarshipTotal.toLocaleString()}원`;
         }
-
-        function switchTab(tabName) {
-            document.querySelectorAll('main > section').forEach(sec => sec.classList.add('hidden'));
-
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.className = 'tab-btn px-4 py-2.5 font-medium border-b-2 border-transparent text-brand-100 hover:text-white flex items-center space-x-2 whitespace-nowrap';
-            });
-
-            const activeBtn = document.getElementById(`tab-btn-${tabName}`);
-            if (activeBtn) {
-                activeBtn.className = 'tab-btn px-4 py-2.5 font-medium border-b-2 border-amber-400 text-white flex items-center space-x-2 whitespace-nowrap';
-            }
-
-            if (tabName === 'student') {
-                document.getElementById('view-student').classList.remove('hidden');
-                setupStudentClockView();
-            } else if (tabName === 'print') {
-                document.getElementById('view-print').classList.remove('hidden');
-                renderA4Sheet();
-            } else if (tabName === 'records') {
-                document.getElementById('view-records').classList.remove('hidden');
-                renderAdminRecordsTable();
-            } else if (tabName === 'admin') {
-                document.getElementById('view-admin').classList.remove('hidden');
-            }
-        }
+        window.renderA4Sheet = renderA4Sheet;
 
         function populateRecordStudentFilter() {
             const selectFilter = document.getElementById('record-student-filter');
             const selectModal = document.getElementById('record-input-student');
+            if (!selectFilter || !selectModal) return;
 
             selectFilter.innerHTML = '<option value="ALL">전체 학생 조회</option>';
             selectModal.innerHTML = '';
 
-            currentStudents.forEach(st => {
+            window.currentStudents.forEach(st => {
                 const opt1 = document.createElement('option');
                 opt1.value = st.id;
                 opt1.textContent = `${st.id} (${st.dept})`;
@@ -1175,6 +1176,7 @@
                 selectModal.appendChild(opt2);
             });
         }
+        window.populateRecordStudentFilter = populateRecordStudentFilter;
 
         function renderAdminRecordsTable() {
             const studentFilter = document.getElementById('record-student-filter').value;
@@ -1185,9 +1187,10 @@
             const month = parseInt(monthStr);
 
             const tbody = document.getElementById('admin-records-tbody');
+            if (!tbody) return;
             tbody.innerHTML = '';
 
-            const filteredLogs = currentLogs.filter(log => {
+            const filteredLogs = window.currentLogs.filter(log => {
                 if (studentFilter !== 'ALL' && log.studentId !== studentFilter) return false;
                 const logDate = new Date(log.date);
                 return logDate.getFullYear() === year && (logDate.getMonth() + 1) === month;
@@ -1219,22 +1222,10 @@
                 tbody.appendChild(tr);
             });
         }
-
-        function openAddRecordModal() {
-            document.getElementById('edit-record-id').value = '';
-            document.getElementById('record-modal-title').textContent = '근무 기록 수동 입력 (출근/퇴근 자동 생성)';
-            
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('record-input-date').value = today;
-            document.getElementById('record-input-in').value = '09:00';
-            document.getElementById('record-input-out').value = '13:00';
-            document.getElementById('record-input-note').value = '담당자 수동 보정';
-
-            document.getElementById('record-modal').classList.remove('hidden');
-        }
+        window.renderAdminRecordsTable = renderAdminRecordsTable;
 
         function openEditRecordModal(logId) {
-            const log = currentLogs.find(l => l.id === logId);
+            const log = window.currentLogs.find(l => l.id === logId);
             if (!log) return;
 
             document.getElementById('edit-record-id').value = log.id;
@@ -1254,11 +1245,7 @@
             document.getElementById('record-modal').classList.remove('hidden');
         }
 
-        function closeRecordModal() {
-            document.getElementById('record-modal').classList.add('hidden');
-        }
-
-        function saveRecordFromModal() {
+        async function saveRecordFromModal() {
             const editId = document.getElementById('edit-record-id').value;
             const studentId = document.getElementById('record-input-student').value;
             const dateStr = document.getElementById('record-input-date').value;
@@ -1266,19 +1253,18 @@
             const timeOut = document.getElementById('record-input-out').value;
             const noteText = document.getElementById('record-input-note').value.trim();
 
-            const student = currentStudents.find(s => s.id === studentId);
+            const student = window.currentStudents.find(s => s.id === studentId);
             if (!student || !dateStr) {
                 alert('학생과 날짜를 올바르게 지정해주세요.');
                 return;
             }
 
             if (editId) {
-                const logIndex = currentLogs.findIndex(l => l.id === editId);
-                if (logIndex !== -1) {
-                    const existingLog = currentLogs[logIndex];
+                // Editing existing single record
+                const existingLog = window.currentLogs.find(l => l.id === editId);
+                if (existingLog) {
                     const newTime = existingLog.type === '출근' ? (timeIn || existingLog.time) : (timeOut || existingLog.time);
-                    currentLogs[logIndex] = {
-                        ...existingLog,
+                    const updatedPayload = {
                         studentId: student.id,
                         dept: student.dept,
                         date: dateStr,
@@ -1286,11 +1272,16 @@
                         timestamp: `${dateStr} ${newTime}:00`,
                         note: noteText
                     };
+                    if (window.db && window.auth.currentUser) {
+                        const ref = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'logs', editId);
+                        await window.setDoc(ref, updatedPayload, { merge: true });
+                    }
                 }
             } else {
+                // Manual creation (Adds Clock-In and/or Clock-Out)
                 if (timeIn) {
-                    currentLogs.unshift({
-                        id: 'log_' + Date.now() + '_in',
+                    const idIn = 'log_' + Date.now() + '_in';
+                    const dataIn = {
                         studentId: student.id,
                         dept: student.dept,
                         type: '출근',
@@ -1298,11 +1289,15 @@
                         time: timeIn,
                         timestamp: `${dateStr} ${timeIn}:00`,
                         note: noteText || '수동 출근 등록'
-                    });
+                    };
+                    if (window.db && window.auth.currentUser) {
+                        const ref = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'logs', idIn);
+                        await window.setDoc(ref, dataIn);
+                    }
                 }
                 if (timeOut) {
-                    currentLogs.unshift({
-                        id: 'log_' + Date.now() + '_out',
+                    const idOut = 'log_' + Date.now() + '_out';
+                    const dataOut = {
                         studentId: student.id,
                         dept: student.dept,
                         type: '퇴근',
@@ -1310,21 +1305,27 @@
                         time: timeOut,
                         timestamp: `${dateStr} ${timeOut}:00`,
                         note: noteText || '수동 퇴근 등록'
-                    });
+                    };
+                    if (window.db && window.auth.currentUser) {
+                        const ref = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'logs', idOut);
+                        await window.setDoc(ref, dataOut);
+                    }
                 }
             }
 
-            localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(currentLogs));
             closeRecordModal();
             renderAdminRecordsTable();
             renderA4Sheet();
-            alert('기록이 수정/저장되었습니다.');
+            alert('기록이 클라우드에 성공적으로 반영되었습니다.');
         }
 
-        function deleteRecord(logId) {
+        async function deleteRecord(logId) {
             if (confirm('이 출퇴근 기록을 삭제하시겠습니까?')) {
-                currentLogs = currentLogs.filter(l => l.id !== logId);
-                localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(currentLogs));
+                if (window.db && window.auth.currentUser) {
+                    const ref = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'logs', logId);
+                    await window.deleteDoc(ref);
+                }
+                window.currentLogs = window.currentLogs.filter(l => l.id !== logId);
                 renderAdminRecordsTable();
                 renderA4Sheet();
             }
@@ -1332,9 +1333,10 @@
 
         function renderAdminStudentList() {
             const tbody = document.getElementById('admin-students-tbody');
+            if (!tbody) return;
             tbody.innerHTML = '';
 
-            currentStudents.forEach(st => {
+            window.currentStudents.forEach(st => {
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-50 transition';
                 tr.innerHTML = `
@@ -1349,16 +1351,9 @@
                 tbody.appendChild(tr);
             });
         }
+        window.renderAdminStudentList = renderAdminStudentList;
 
-        function openAddStudentModal() {
-            document.getElementById('student-modal').classList.remove('hidden');
-        }
-
-        function closeAddStudentModal() {
-            document.getElementById('student-modal').classList.add('hidden');
-        }
-
-        function saveNewStudent() {
+        async function saveNewStudent() {
             const id = document.getElementById('new-student-id').value.trim();
             const dept = document.getElementById('new-student-dept').value.trim();
 
@@ -1367,13 +1362,15 @@
                 return;
             }
 
-            if (currentStudents.some(s => s.id === id)) {
+            if (window.currentStudents.some(s => s.id === id)) {
                 alert('이미 등록된 학번입니다.');
                 return;
             }
 
-            currentStudents.push({ id, dept });
-            localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(currentStudents));
+            if (window.db && window.auth.currentUser) {
+                const ref = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'students', id);
+                await window.setDoc(ref, { dept });
+            }
 
             populateDeptDropdown();
             populatePrintStudentSelect();
@@ -1382,29 +1379,98 @@
 
             document.getElementById('new-student-id').value = '';
             document.getElementById('new-student-dept').value = '';
-            alert(`학번 [${id}] 정보가 등록되었습니다.`);
+            alert(`학번 [${id}] 정보가 연동 저장되었습니다.`);
         }
 
-        function deleteStudent(id) {
+        async function deleteStudent(id) {
             if (confirm(`학번 [${id}] 학생을 명단에서 삭제하시겠습니까?`)) {
-                currentStudents = currentStudents.filter(s => s.id !== id);
-                localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(currentStudents));
+                if (window.db && window.auth.currentUser) {
+                    const ref = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'students', id);
+                    await window.deleteDoc(ref);
+                }
+                window.currentStudents = window.currentStudents.filter(s => s.id !== id);
                 populateDeptDropdown();
                 populatePrintStudentSelect();
                 renderAdminStudentList();
             }
         }
 
-        function resetToSampleData() {
-            if (confirm('모든 데이터를 기본 89명 학생 명단으로 초기화하시겠습니까?')) {
-                localStorage.removeItem(STORAGE_KEY_STUDENTS);
-                localStorage.removeItem(STORAGE_KEY_LOGS);
-                loadLocalStorageData();
-                populateDeptDropdown();
-                populatePrintStudentSelect();
-                renderAdminStudentList();
-                alert('데이터 초기화가 완료되었습니다.');
+        // Export All System Data to JSON File
+        function exportDataJSON() {
+            const exportObj = {
+                students: window.currentStudents,
+                logs: window.currentLogs,
+                exportedAt: new Date().toISOString()
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `출근부_데이터_백업_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        // Import Data from JSON File
+        function importDataJSON(event) {
+            const fileReader = new FileReader();
+            fileReader.onload = async function(e) {
+                try {
+                    const importedObj = JSON.parse(e.target.result);
+                    if (importedObj.students && importedObj.logs) {
+                        if (confirm('선택한 파일의 데이터로 클라우드 데이터를 업데이트하시겠습니까?')) {
+                            if (window.db && window.auth.currentUser) {
+                                for (const st of importedObj.students) {
+                                    const ref = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'students', st.id);
+                                    await window.setDoc(ref, { dept: st.dept }, { merge: true });
+                                }
+                                for (const log of importedObj.logs) {
+                                    const logId = log.id || ('log_' + Math.random().toString(36).substr(2, 9));
+                                    const ref = window.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'logs', logId);
+                                    await window.setDoc(ref, {
+                                        studentId: log.studentId,
+                                        dept: log.dept,
+                                        type: log.type,
+                                        timestamp: log.timestamp,
+                                        date: log.date,
+                                        time: log.time,
+                                        note: log.note || ''
+                                    }, { merge: true });
+                                }
+                            }
+                            alert('성공적으로 데이터를 클라우드에 반영하였습니다.');
+                        }
+                    } else {
+                        alert('유효하지 않은 데이터 백업 파일 형식입니다.');
+                    }
+                } catch (err) {
+                    alert('파일을 읽는 중 오류가 발생했습니다: ' + err.message);
+                }
+            };
+            if (event.target.files && event.target.files[0]) {
+                fileReader.readAsText(event.target.files[0]);
             }
+        }
+
+        // Copy JSON Data Code to Clipboard
+        function copyDataToClipboard() {
+            const exportObj = {
+                students: window.currentStudents,
+                logs: window.currentLogs
+            };
+            const jsonText = JSON.stringify(exportObj);
+            
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = jsonText;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            try {
+                document.execCommand('copy');
+                alert('전체 데이터 코드가 클립보드에 복사되었습니다.');
+            } catch (err) {
+                alert('복사 중 오류가 발생했습니다.');
+            }
+            document.body.removeChild(tempTextArea);
         }
     </script>
 </body>
