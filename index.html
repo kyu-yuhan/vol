@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대학교 봉사장학생 온라인 출근부</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter & Noto Sans KR -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#2563eb',
+                            600: '#1d4ed8',
+                            700: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        /* Styles specifically for A4 Printable Document */
+        @media print {
+            body {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                font-size: 11pt;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            .a4-container {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            @page {
+                size: A4 portrait;
+                margin: 12mm;
+            }
+            table, th, td {
+                border-color: #000000 !important;
+            }
+        }
+
+        .print-only {
+            display: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col text-slate-800">
+
+    <!-- ========================================== -->
+    <!-- LOGIN SCREEN (Landing Page when not logged in) -->
+    <!-- ========================================== -->
+    <div id="login-screen" class="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div class="max-w-md w-full bg-white rounded-2xl shadow-2xl border border-slate-800 overflow-hidden">
+            
+            <!-- Login Header -->
+            <div class="bg-brand-900 p-6 text-white text-center">
+                <div class="inline-flex items-center justify-center w-14 h-14 bg-brand-600 rounded-2xl mb-3 shadow-inner">
+                    <i class="fa-solid fa-graduation-cap text-2xl text-amber-300"></i>
+                </div>
+                <h1 class="text-xl font-bold">봉사장학생 출근부 시스템</h1>
+                <p class="text-xs text-brand-100 mt-1">접속 모드를 선택 후 로그인해주세요</p>
+            </div>
+
+            <!-- Login Mode Toggle -->
+            <div class="flex border-b border-slate-200 bg-slate-50">
+                <button type="button" id="tab-login-student" onclick="setLoginMode('student')" class="flex-1 py-3 text-sm font-bold border-b-2 border-brand-600 text-brand-700 bg-white transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-user"></i>
+                    <span>학생 로그인</span>
+                </button>
+                <button type="button" id="tab-login-admin" onclick="setLoginMode('admin')" class="flex-1 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-user-shield"></i>
+                    <span>관리자 로그인</span>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-5">
+                
+                <!-- STUDENT LOGIN FORM -->
+                <form id="form-student-login" onsubmit="handleStudentLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1.5">
+                            <i class="fa-solid fa-building-columns mr-1 text-brand-600"></i> 소속 학과 선택
+                        </label>
+                        <select id="login-dept-select" required class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 text-sm font-medium focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1.5">
+                            <i class="fa-solid fa-key mr-1 text-brand-600"></i> 비밀번호 (학번 입력)
+                        </label>
+                        <input type="password" id="login-student-pw" required placeholder="학번을 비밀번호로 입력하세요" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 text-sm font-mono focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition">
+                    </div>
+
+                    <div class="bg-amber-50 p-3 rounded-lg border border-amber-200/80 text-[11px] text-amber-800 flex items-start space-x-2">
+                        <i class="fa-solid fa-circle-info text-amber-600 mt-0.5"></i>
+                        <span>소속 학과를 선택하신 후, 본인의 <strong>학번</strong>을 비밀번호 란에 입력하여 로그인합니다.</span>
+                    </div>
+
+                    <button type="submit" class="w-full py-3.5 bg-brand-600 hover:bg-brand-700 active:scale-[0.99] text-white font-bold rounded-xl shadow-md transition flex items-center justify-center space-x-2 text-sm">
+                        <span>학생 출근부 접속</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </form>
+
+                <!-- ADMIN LOGIN FORM -->
+                <form id="form-admin-login" onsubmit="handleAdminLogin(event)" class="space-y-4 hidden">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1.5">관리자 아이디</label>
+                        <input type="text" id="login-admin-id" required placeholder="admin" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 text-sm font-mono focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1.5">관리자 비밀번호</label>
+                        <input type="password" id="login-admin-pw" required placeholder="••••••••" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 text-sm font-mono focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition">
+                    </div>
+
+                    <button type="submit" class="w-full py-3.5 bg-slate-800 hover:bg-slate-900 active:scale-[0.99] text-white font-bold rounded-xl shadow-md transition flex items-center justify-center space-x-2 text-sm">
+                        <i class="fa-solid fa-lock"></i>
+                        <span>관리자 모드 접속</span>
+                    </button>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- MAIN DASHBOARD APP (Shown after Login)     -->
+    <!-- ========================================== -->
+    <div id="app-screen" class="hidden min-h-screen flex flex-col">
+
+        <!-- TOP HEADER -->
+        <header class="no-print bg-brand-900 text-white shadow-md sticky top-0 z-50">
+            <div class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-brand-600 p-2 rounded-lg flex items-center justify-center">
+                        <i class="fa-solid fa-graduation-cap text-xl text-amber-300"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-lg leading-tight">대학교 봉사장학생 온라인 출근부</h1>
+                        <p class="text-xs text-brand-100" id="header-user-info">접속 정보 확인 중...</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="hidden sm:block text-right">
+                        <p class="text-xs text-brand-100" id="current-date-str">2026년 10월 28일 (수)</p>
+                        <p class="font-mono font-semibold text-base text-amber-300" id="realtime-clock">10:56:00</p>
+                    </div>
+
+                    <!-- LOGOUT BUTTON -->
+                    <button onclick="handleLogout()" class="px-3 py-1.5 bg-brand-700 hover:bg-rose-600 text-white text-xs font-semibold rounded-lg border border-brand-600 transition flex items-center space-x-1.5 shadow-sm">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <span>로그아웃</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs (Dynamic per role) -->
+            <nav class="bg-brand-700/60 border-t border-brand-600/50">
+                <div class="max-w-5xl mx-auto px-4 flex space-x-1 overflow-x-auto text-sm" id="nav-tabs">
+                    <!-- Populated dynamically via JS according to user role -->
+                </div>
+            </nav>
+        </header>
+
+        <!-- MAIN CONTAINER -->
+        <main class="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6">
+
+            <!-- ========================================== -->
+            <!-- STUDENT TAB: CLOCK-IN/OUT INTERFACE        -->
+            <!-- ========================================== -->
+            <section id="view-student" class="space-y-6">
+
+                <!-- Student Clock Action Card -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 sm:p-6 space-y-5">
+                    
+                    <div class="flex flex-wrap items-center justify-between gap-3 bg-brand-50 p-4 rounded-xl border border-brand-100">
+                        <div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-brand-600">접속한 학생 정보</span>
+                            <div class="text-lg font-bold text-slate-800" id="clock-student-id">학번: -</div>
+                            <div class="text-xs text-slate-600" id="clock-student-dept">소속: -</div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs text-slate-500">오늘 출근 상태</span>
+                            <div id="clock-status-badge" class="font-bold text-sm text-slate-700">확인 중...</div>
+                        </div>
+                    </div>
+
+                    <!-- Note Input -->
+                    <div>
+                        <label for="clock-note" class="block text-xs font-semibold text-slate-600 mb-1">
+                            근무 메모 / 특이사항 (선택 입력)
+                        </label>
+                        <input type="text" id="clock-note" placeholder="예: 학과사무실 물품 정리 및 서류 보관" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition">
+                    </div>
+
+                    <!-- Clock In / Clock Out Buttons -->
+                    <div class="grid grid-cols-2 gap-3 sm:gap-4 pt-1">
+                        <button id="btn-clock-in" onclick="handleClockAction('출근')" class="py-4 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-base sm:text-lg shadow-md hover:shadow-lg transition flex flex-col items-center justify-center space-y-1">
+                            <i class="fa-solid fa-right-to-bracket text-2xl mb-0.5"></i>
+                            <span>출근하기</span>
+                            <span id="btn-in-time" class="text-[11px] font-normal text-emerald-100">--:--</span>
+                        </button>
+
+                        <button id="btn-clock-out" onclick="handleClockAction('퇴근')" class="py-4 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white font-bold text-base sm:text-lg shadow-md hover:shadow-lg transition flex flex-col items-center justify-center space-y-1">
+                            <i class="fa-solid fa-right-from-bracket text-2xl mb-0.5"></i>
+                            <span>퇴근하기</span>
+                            <span id="btn-out-time" class="text-[11px] font-normal text-rose-100">--:--</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- My Attendance Records -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="font-bold text-slate-800 text-base flex items-center space-x-2">
+                            <i class="fa-solid fa-clock-rotate-left text-brand-600"></i>
+                            <span>나의 출/퇴근 기재 내역</span>
+                        </h2>
+                        <span class="text-xs text-slate-400">최근 기록</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs text-slate-600">
+                            <thead class="bg-slate-50 text-slate-500 uppercase border-b border-slate-200">
+                                <tr>
+                                    <th class="py-2.5 px-3">일시</th>
+                                    <th class="py-2.5 px-3">학번</th>
+                                    <th class="py-2.5 px-3">학과</th>
+                                    <th class="py-2.5 px-3">구분</th>
+                                    <th class="py-2.5 px-3">메모</th>
+                                </tr>
+                            </thead>
+                            <tbody id="student-my-logs-tbody" class="divide-y divide-slate-100">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========================================== -->
+            <!-- ADMIN/PRINT TAB: A4 MONTHLY REGISTER       -->
+            <!-- ========================================== -->
+            <section id="view-print" class="hidden space-y-6">
+                
+                <!-- Controls Bar (No Print) -->
+                <div class="no-print bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">근무 월 선택</label>
+                            <input type="month" id="print-month-select" value="2026-10" onchange="renderA4Sheet()" class="px-3 py-1.5 text-sm bg-slate-50 border border-slate-300 rounded-lg focus:ring-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">대상 학번 선택</label>
+                            <select id="print-student-select" onchange="renderA4Sheet()" class="px-3 py-1.5 text-sm bg-slate-50 border border-slate-300 rounded-lg focus:ring-brand-500">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">봉사 시급 (원)</label>
+                            <div class="relative">
+                                <input type="number" id="hourly-wage-input" value="10320" step="10" onchange="renderA4Sheet()" onkeyup="renderA4Sheet()" class="w-28 px-2.5 py-1.5 text-sm bg-slate-50 border border-slate-300 rounded-lg focus:ring-brand-500 font-mono text-right pr-6">
+                                <span class="absolute right-2 top-1.5 text-xs text-slate-400">원</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                        <button onclick="window.print()" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm rounded-lg shadow flex items-center space-x-2 transition">
+                            <i class="fa-solid fa-print"></i>
+                            <span>A4 출근부 인쇄 / PDF 저장</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- A4 SHEET PREVIEW CONTAINER -->
+                <div class="bg-slate-300/60 p-2 sm:p-8 rounded-xl overflow-x-auto flex justify-center no-print-bg">
+                    
+                    <!-- Actual A4 Document Sheet -->
+                    <div id="a4-document" class="a4-container bg-white text-slate-900 w-[210mm] min-h-[297mm] p-[12mm] shadow-xl border border-slate-200 text-xs leading-normal flex flex-col justify-between">
+                        
+                        <div>
+                            <!-- Document Header -->
+                            <div class="text-center mb-4">
+                                <h1 class="text-2xl font-bold underline underline-offset-8 decoration-2 tracking-widest text-black">
+                                    봉사장학생 근무 출근부
+                                </h1>
+                            </div>
+
+                            <!-- Basic Information Table -->
+                            <div class="mb-3">
+                                <table class="w-full border-collapse border border-black text-center text-xs">
+                                    <tr>
+                                        <th class="border border-black bg-slate-100 p-2 font-bold w-1/6">소 속 부 서</th>
+                                        <td class="border border-black p-2 w-2/6" id="a4-dept">기계공학과 기계시스템전공</td>
+                                        <th class="border border-black bg-slate-100 p-2 font-bold w-1/6">근 무 월</th>
+                                        <td class="border border-black p-2 w-2/6" id="a4-month">2026년 10월</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="border border-black bg-slate-100 p-2 font-bold">학 번</th>
+                                        <td class="border border-black p-2 font-bold font-mono text-sm" id="a4-student-id">202501017</td>
+                                        <th class="border border-black bg-slate-100 p-2 font-bold">성 명 (실필 작성)</th>
+                                        <td class="border border-black p-2 text-slate-400 font-normal">____________________ (인)</td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <!-- Daily Work Log Table -->
+                            <div class="mb-3">
+                                <table class="w-full border-collapse border border-black text-center text-xs">
+                                    <thead class="bg-slate-100">
+                                        <tr>
+                                            <th class="border border-black py-1 px-1 w-10">일자</th>
+                                            <th class="border border-black py-1 px-1 w-10">요일</th>
+                                            <th class="border border-black py-1 px-2">출근 시각</th>
+                                            <th class="border border-black py-1 px-2">퇴근 시각</th>
+                                            <th class="border border-black py-1 px-2 w-20">근무 시간</th>
+                                            <th class="border border-black py-1 px-2">비고 / 업무내용</th>
+                                            <th class="border border-black py-1 px-1 w-14">확인</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="a4-tbody">
+                                        <!-- Populated dynamically via JS -->
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="bg-slate-50 font-bold">
+                                            <td class="border border-black p-1.5 text-center" colspan="4">합 계</td>
+                                            <td class="border border-black p-1.5 text-center text-brand-900" id="a4-total-hours">0시간 0분</td>
+                                            <td class="border border-black p-1.5 text-left" colspan="2" id="a4-summary-days">총 근무일수: 0일</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+
+                            <!-- Scholarship Calculation Box -->
+                            <div class="mb-4">
+                                <table class="w-full border-collapse border border-black text-center text-xs">
+                                    <tr class="bg-slate-100">
+                                        <th class="border border-black p-1.5 w-1/4 font-bold">월 총 근무시간</th>
+                                        <th class="border border-black p-1.5 w-1/4 font-bold">적용 시급</th>
+                                        <th class="border border-black p-1.5 w-2/4 font-bold bg-amber-50">예상 봉사장학금 총 지급액</th>
+                                    </tr>
+                                    <tr>
+                                        <td class="border border-black p-2 font-semibold" id="calc-total-hours-str">0시간 0분 (0시간)</td>
+                                        <td class="border border-black p-2 font-mono" id="calc-wage-str">10,320원</td>
+                                        <td class="border border-black p-2 font-bold text-sm text-brand-900 bg-amber-50/40" id="calc-scholarship-total">0원</td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <!-- Confirmation Statement -->
+                            <div class="my-4 text-center space-y-2 py-1">
+                                <p class="text-xs text-slate-700">위와 같이 봉사장학생의 근무 일수 및 산출 내역을 정확히 확인하고 출근부를 제출합니다.</p>
+                                <p class="text-sm font-semibold tracking-wide" id="a4-submit-date">2026년 10월 31일</p>
+                                <p class="text-xs font-bold text-right pr-6">
+                                    봉사장학생 (학번: <span id="a4-sign-student-id" class="underline underline-offset-4 font-mono ml-1 mr-2">202501017</span> / 성명: <span class="inline-block border-b border-black w-32 text-center text-slate-400 font-normal">________________</span>) : <span class="ml-2">(서명 / 인)</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Signatures Box -->
+                        <div class="mt-2 pt-1">
+                            <table class="w-full border-collapse border border-black text-center">
+                                <tr>
+                                    <th class="border border-black bg-slate-100 p-1.5 w-1/2 font-bold text-xs">
+                                        작성자 / 담당자 확인
+                                    </th>
+                                    <th class="border border-black bg-slate-100 p-1.5 w-1/2 font-bold text-xs">
+                                        학과장 / 부서장 승인
+                                    </th>
+                                </tr>
+                                <tr>
+                                    <td class="border border-black h-16 align-bottom p-1.5 text-slate-400 text-[11px]">
+                                        (인 또는 서명)
+                                    </td>
+                                    <td class="border border-black h-16 align-bottom p-1.5 text-slate-400 text-[11px]">
+                                        (인 또는 서명)
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========================================== -->
+            <!-- ADMIN TAB: STUDENT ROSTER MANAGEMENT       -->
+            <!-- ========================================== -->
+            <section id="view-admin" class="hidden space-y-6">
+                
+                <!-- Student Roster Table -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h2 class="font-bold text-slate-800 text-base flex items-center space-x-2">
+                            <i class="fa-solid fa-users text-brand-600"></i>
+                            <span>근무 봉사장학생 명단 관리</span>
+                        </h2>
+                        <button onclick="openAddStudentModal()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-lg flex items-center space-x-1 transition shadow-sm">
+                            <i class="fa-solid fa-user-plus"></i>
+                            <span>학생 추가</span>
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs text-slate-600">
+                            <thead class="bg-slate-50 text-slate-500 uppercase border-b border-slate-200">
+                                <tr>
+                                    <th class="py-2.5 px-3">학번 (비밀번호)</th>
+                                    <th class="py-2.5 px-3">소속 학과</th>
+                                    <th class="py-2.5 px-3 text-right">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-students-tbody" class="divide-y divide-slate-100">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Reset & Sample Data Controls -->
+                <div class="bg-slate-100 rounded-xl p-4 border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div>
+                        <p class="font-bold text-slate-700">데이터 초기화 옵션</p>
+                        <p class="text-slate-500">기본 전체 89명 명단으로 복원하거나 출퇴근 기록을 초기화합니다.</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="resetToSampleData()" class="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg shadow transition">
+                            초기 데이터로 리셋
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========================================== -->
+            <!-- ADMIN TAB: ATTENDANCE RECORD EDIT & MANAGEMENT -->
+            <!-- ========================================== -->
+            <section id="view-records" class="hidden space-y-6">
+                <!-- Record Management Controls -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                        <h2 class="font-bold text-slate-800 text-base flex items-center space-x-2">
+                            <i class="fa-solid fa-pen-to-square text-brand-600"></i>
+                            <span>출근부 기록 관리 및 누락 보정</span>
+                        </h2>
+                        <button onclick="openAddRecordModal()" class="px-3.5 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg shadow transition flex items-center space-x-1.5">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>누락/미입력 근무 수동 추가</span>
+                        </button>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3 text-xs">
+                        <div>
+                            <label class="block font-semibold text-slate-600 mb-1">학생 선택</label>
+                            <select id="record-student-filter" onchange="renderAdminRecordsTable()" class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-brand-500 font-medium text-slate-800">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-600 mb-1">조회 월</label>
+                            <input type="month" id="record-month-filter" value="2026-10" onchange="renderAdminRecordsTable()" class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-brand-500 font-medium">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Record List Table -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs text-slate-600">
+                            <thead class="bg-slate-50 text-slate-500 uppercase border-b border-slate-200">
+                                <tr>
+                                    <th class="py-2.5 px-3">날짜 및 시간</th>
+                                    <th class="py-2.5 px-3">학번</th>
+                                    <th class="py-2.5 px-3">구분</th>
+                                    <th class="py-2.5 px-3">메모</th>
+                                    <th class="py-2.5 px-3 text-right">수정/삭제</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-records-tbody" class="divide-y divide-slate-100">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="no-print bg-white border-t border-slate-200 py-4 mt-auto">
+            <div class="max-w-5xl mx-auto px-4 text-center text-xs text-slate-400">
+                <p>대학교 봉사장학생 온라인 출근부 시스템 &copy; 2026. All Rights Reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- ADD STUDENT MODAL -->
+    <div id="student-modal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-5 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h3 class="font-bold text-slate-800 text-sm">신규 봉사장학생 추가</h3>
+                <button onclick="closeAddStudentModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">학번 (학생 로그인 비밀번호로 사용됨)</label>
+                    <input type="text" id="new-student-id" placeholder="예: 202410123" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">소속 학과</label>
+                    <input type="text" id="new-student-dept" placeholder="예: 컴퓨터공학과" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 pt-2">
+                <button onclick="closeAddStudentModal()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-medium">취소</button>
+                <button onclick="saveNewStudent()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-medium">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD/EDIT ATTENDANCE RECORD MODAL -->
+    <div id="record-modal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-5 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h3 class="font-bold text-slate-800 text-sm" id="record-modal-title">근무 기록 수동 입력 / 수정</h3>
+                <button onclick="closeRecordModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <input type="hidden" id="edit-record-id">
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">대상 학생 선택</label>
+                    <select id="record-input-student" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg font-bold">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">근무 날짜</label>
+                    <input type="date" id="record-input-date" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">출근 시각</label>
+                        <input type="time" id="record-input-in" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg font-mono">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">퇴근 시각</label>
+                        <input type="time" id="record-input-out" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg font-mono">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">비고 / 업무내용 (선택)</label>
+                    <input type="text" id="record-input-note" placeholder="예: [관리자 보정] 수동 출퇴근 처리" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-2">
+                <button onclick="closeRecordModal()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-medium">취소</button>
+                <button onclick="saveRecordFromModal()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-medium">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT APP LOGIC -->
+    <script>
+        const STORAGE_KEY_STUDENTS = 'univ_attendance_students_v4';
+        const STORAGE_KEY_LOGS = 'univ_attendance_logs_v4';
+
+        // Full 89 Student Initial Data
+        const SAMPLE_STUDENTS = [
+            { id: '202501017', dept: '기계공학과 기계시스템전공' },
+            { id: '202317012', dept: '전기공학과 전기공학전공' },
+            { id: '202503016', dept: '전기공학과 전기공학전공' },
+            { id: '202304036', dept: '전기공학과 전자공학전공' },
+            { id: '202403013', dept: '전기공학과 전자공학전공' },
+            { id: '202405010', dept: '안전소방학과 산업안전전공' },
+            { id: '202405026', dept: '안전소방학과 산업안전전공' },
+            { id: '202306007', dept: '산업디자인학과' },
+            { id: '202306047', dept: '산업디자인학과' },
+            { id: '202406047', dept: '산업디자인학과' },
+            { id: '202507041', dept: '컴퓨터공학과 컴퓨터소프트웨어전공' },
+            { id: '202607007', dept: '컴퓨터공학과 컴퓨터소프트웨어전공' },
+            { id: '202508020', dept: '기계공학과 소방설비안전전공' },
+            { id: '202509053', dept: '멀티디자인학과 시각디자인전공' },
+            { id: '202509056', dept: '멀티디자인학과 시각디자인전공' },
+            { id: '202410032', dept: '식품영양학과' },
+            { id: '202510004', dept: '식품영양학과' },
+            { id: '202312049', dept: '글로벌관광학과 호텔관광전공' },
+            { id: '202512003', dept: '글로벌관광학과 호텔관광전공' },
+            { id: '202413030', dept: '글로벌관광학과 일본비즈니스전공' },
+            { id: '202613017', dept: '글로벌관광학과 일본비즈니스전공' },
+            { id: '202613001', dept: '글로벌관광학과 일본비즈니스전공' },
+            { id: '202515019', dept: '경영학과 경영정보전공' },
+            { id: '202615031', dept: '경영학과 경영정보전공' },
+            { id: '202516002', dept: '보건의료행정과' },
+            { id: '202516050', dept: '보건의료행정과' },
+            { id: '202516059', dept: '보건의료행정과' },
+            { id: '202616054', dept: '보건의료행정과' },
+            { id: '202417009', dept: 'IT정보통신학과 컴퓨터정보통신전공' },
+            { id: '202137009', dept: '애니메이션영상학과' },
+            { id: '202209024', dept: '방송미디어학과 애니메이션웹툰전공' },
+            { id: '202420074', dept: '애니메이션영상학과' },
+            { id: '202620012', dept: '방송미디어학과 애니메이션웹툰전공' },
+            { id: '202620014', dept: '방송미디어학과 애니메이션웹툰전공' },
+            { id: '202137052', dept: '패션디자인학과' },
+            { id: '202322023', dept: '패션디자인학과' },
+            { id: '202322062', dept: '패션디자인학과' },
+            { id: '202422033', dept: '패션디자인학과' },
+            { id: '202522008', dept: '생활디자인학과 패션디자인전공' },
+            { id: '202124048', dept: '실내건축학과' },
+            { id: '202424001', dept: '실내건축학과' },
+            { id: '202424045', dept: '실내건축학과' },
+            { id: '202525026', dept: '컴퓨터공학과 인공지능전공' },
+            { id: '202227039', dept: '컴퓨터소프트웨어공학과 게임콘텐츠전공' },
+            { id: '202327041', dept: '컴퓨터소프트웨어공학과 게임콘텐츠전공' },
+            { id: '202528020', dept: '건강웰니스학과 사회복지전공' },
+            { id: '202529064', dept: '호텔외식조리학과 호텔조리전공' },
+            { id: '202629045', dept: '호텔외식조리학과 호텔조리전공' },
+            { id: '202430020', dept: '사회서비스학과 아동보육전공' },
+            { id: '202520026', dept: '경영학과 세무회계전공' },
+            { id: '202631030', dept: '경영학과 세무회계전공' },
+            { id: '202633002', dept: '방송미디어학과 광고미디어전공' },
+            { id: '202335027', dept: '유한생명바이오학과 유한바이오제약전공' },
+            { id: '202435075', dept: '유한생명바이오학과 유한바이오제약전공' },
+            { id: '202438004', dept: '의료뷰티학과 피부메이크업전공' },
+            { id: '202639003', dept: '의료뷰티학과 뷰티화장품전공' },
+            { id: '202540012', dept: '호텔외식조리학과 카페베이커리전공' },
+            { id: '202540013', dept: '호텔외식조리학과 카페베이커리전공' },
+            { id: '202640067', dept: '호텔외식조리학과 카페베이커리전공' },
+            { id: '2024441037', dept: '방송미디어학과 방송영상전공' },
+            { id: '202541013', dept: '방송미디어학과 방송영상전공' },
+            { id: '202541035', dept: '방송미디어학과 방송영상전공' },
+            { id: '202641003', dept: '방송미디어학과 방송영상전공' },
+            { id: '202641039', dept: '방송미디어학과 방송영상전공' },
+            { id: '2024442010', dept: '방송미디어학과 방송문예창작전공' },
+            { id: '202542015', dept: '방송예술학과 방송문예창작전공' },
+            { id: '202642020', dept: '방송예술학과 방송문예창작전공' },
+            { id: '202644006', dept: '반려동물보건학과' },
+            { id: '202644010', dept: '반려동물보건학과' },
+            { id: '202445002', dept: '건강웰니스학과 스포츠재활전공' },
+            { id: '202545037', dept: '건강웰니스학과 스포츠재활전공' },
+            { id: '202545050', dept: '건강웰니스학과 스포츠재활전공' },
+            { id: '202545072', dept: '건강웰니스학과 스포츠재활전공' },
+            { id: '202445019', dept: '건강웰니스학과 스포츠재활전공' },
+            { id: '202646025', dept: '작업치료과' },
+            { id: '202547018', dept: '방송예술학과 방송연예전공' },
+            { id: '202647021', dept: '방송예술학과 방송연예전공' },
+            { id: '202548022', dept: '응급구조과' },
+            { id: '202548029', dept: '응급구조과' },
+            { id: '202648021', dept: '응급구조과' },
+            { id: '202648031', dept: '응급구조과' },
+            { id: '202544013', dept: '건강웰니스학과 반려동물산업전공' },
+            { id: '202649022', dept: '건강웰니스학과 반려동물산업전공' },
+            { id: '202550008', dept: '항공서비스학과' },
+            { id: '202650043', dept: '항공서비스학과' },
+            { id: '202651001', dept: '치위생과' },
+            { id: '202651009', dept: '치위생과' },
+            { id: '202651026', dept: '치위생과' },
+            { id: '202651032', dept: '치위생과' }
+        ];
+
+        let currentStudents = [];
+        let currentLogs = [];
+
+        // Current Session State: { role: 'student' | 'admin', studentId?: string, dept?: string }
+        let currentUserSession = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initClock();
+            loadLocalStorageData();
+            populateDeptDropdown();
+        });
+
+        function initClock() {
+            const updateClock = () => {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = now.getMonth() + 1;
+                const date = now.getDate();
+                const days = ['일', '월', '화', '수', '목', '금', '토'];
+                const dayStr = days[now.getDay()];
+
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+
+                document.getElementById('current-date-str').textContent = `${year}년 ${month}월 ${date}일 (${dayStr})`;
+                document.getElementById('realtime-clock').textContent = `${hours}:${minutes}:${seconds}`;
+
+                const shortTime = `${hours}:${minutes}`;
+                const btnIn = document.getElementById('btn-in-time');
+                const btnOut = document.getElementById('btn-out-time');
+                if (btnIn) btnIn.textContent = `[현재 ${shortTime}]`;
+                if (btnOut) btnOut.textContent = `[현재 ${shortTime}]`;
+            };
+            updateClock();
+            setInterval(updateClock, 1000);
+        }
+
+        function loadLocalStorageData() {
+            const storedStudents = localStorage.getItem(STORAGE_KEY_STUDENTS);
+            if (storedStudents) {
+                currentStudents = JSON.parse(storedStudents);
+            } else {
+                currentStudents = SAMPLE_STUDENTS;
+                localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(currentStudents));
+            }
+
+            const storedLogs = localStorage.getItem(STORAGE_KEY_LOGS);
+            if (storedLogs) {
+                currentLogs = JSON.parse(storedLogs);
+            } else {
+                currentLogs = generateSampleLogs();
+                localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(currentLogs));
+            }
+        }
+
+        function generateSampleLogs() {
+            const logs = [];
+            const student = SAMPLE_STUDENTS[0];
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+
+            const sampleDays = [2, 4, 7, 9, 11, 14, 16, 18, 21, 23, 25];
+            sampleDays.forEach(day => {
+                if (day <= now.getDate()) {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    logs.push({
+                        id: 'log_' + Math.random().toString(36).substr(2, 9),
+                        studentId: student.id,
+                        dept: student.dept,
+                        type: '출근',
+                        timestamp: `${dateStr} 09:00:15`,
+                        date: dateStr,
+                        time: '09:00',
+                        note: '정시 출근'
+                    });
+                    logs.push({
+                        id: 'log_' + Math.random().toString(36).substr(2, 9),
+                        studentId: student.id,
+                        dept: student.dept,
+                        type: '퇴근',
+                        timestamp: `${dateStr} 13:00:40`,
+                        date: dateStr,
+                        time: '13:00',
+                        note: '주요 업무 완료'
+                    });
+                }
+            });
+            return logs;
+        }
+
+        function populateDeptDropdown() {
+            const select = document.getElementById('login-dept-select');
+            select.innerHTML = '';
+
+            const depts = [...new Set(currentStudents.map(s => s.dept))];
+            if (depts.length === 0) {
+                select.innerHTML = '<option value="">등록된 학과가 없습니다</option>';
+                return;
+            }
+
+            depts.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                select.appendChild(opt);
+            });
+        }
+
+        function setLoginMode(mode) {
+            const studentTab = document.getElementById('tab-login-student');
+            const adminTab = document.getElementById('tab-login-admin');
+            const studentForm = document.getElementById('form-student-login');
+            const adminForm = document.getElementById('form-admin-login');
+
+            if (mode === 'student') {
+                studentTab.className = 'flex-1 py-3 text-sm font-bold border-b-2 border-brand-600 text-brand-700 bg-white transition flex items-center justify-center space-x-2';
+                adminTab.className = 'flex-1 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition flex items-center justify-center space-x-2';
+                studentForm.classList.remove('hidden');
+                adminForm.classList.add('hidden');
+            } else {
+                adminTab.className = 'flex-1 py-3 text-sm font-bold border-b-2 border-brand-600 text-brand-700 bg-white transition flex items-center justify-center space-x-2';
+                studentTab.className = 'flex-1 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition flex items-center justify-center space-x-2';
+                adminForm.classList.remove('hidden');
+                studentForm.classList.add('hidden');
+            }
+        }
+
+        function handleStudentLogin(e) {
+            e.preventDefault();
+            const dept = document.getElementById('login-dept-select').value;
+            const inputPw = document.getElementById('login-student-pw').value.trim();
+
+            const student = currentStudents.find(s => s.dept === dept && s.id === inputPw);
+
+            if (!student) {
+                alert('일치하는 학생 정보를 찾을 수 없습니다.\n선택하신 소속 학과와 비밀번호(학번)를 다시 확인해 주세요.');
+                return;
+            }
+
+            currentUserSession = {
+                role: 'student',
+                studentId: student.id,
+                dept: student.dept
+            };
+
+            launchApp();
+        }
+
+        function handleAdminLogin(e) {
+            e.preventDefault();
+            const id = document.getElementById('login-admin-id').value.trim();
+            const pw = document.getElementById('login-admin-pw').value.trim();
+
+            if (id === 'admin' && pw === 'admin0331') {
+                currentUserSession = {
+                    role: 'admin'
+                };
+                launchApp();
+            } else {
+                alert('관리자 아이디 또는 비밀번호가 올바르지 않습니다.');
+            }
+        }
+
+        function launchApp() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-screen').classList.remove('hidden');
+
+            const headerInfo = document.getElementById('header-user-info');
+            const navTabs = document.getElementById('nav-tabs');
+
+            if (currentUserSession.role === 'student') {
+                headerInfo.textContent = `[학생 로그인] 학번: ${currentUserSession.studentId} (${currentUserSession.dept})`;
+
+                navTabs.innerHTML = `
+                    <button onclick="switchTab('student')" id="tab-btn-student" class="tab-btn px-4 py-2.5 font-medium border-b-2 border-amber-400 text-white flex items-center space-x-2 whitespace-nowrap">
+                        <i class="fa-solid fa-user-check"></i>
+                        <span>출/퇴근 체크 및 내역</span>
+                    </button>
+                `;
+
+                setupStudentClockView();
+                switchTab('student');
+            } else if (currentUserSession.role === 'admin') {
+                headerInfo.textContent = `[관리자 접속 모드] 전체 권한`;
+
+                navTabs.innerHTML = `
+                    <button onclick="switchTab('print')" id="tab-btn-print" class="tab-btn px-4 py-2.5 font-medium border-b-2 border-amber-400 text-white flex items-center space-x-2 whitespace-nowrap">
+                        <i class="fa-solid fa-file-invoice"></i>
+                        <span>월별 출근부 (A4 인쇄/장학금 산출)</span>
+                    </button>
+                    <button onclick="switchTab('records')" id="tab-btn-records" class="tab-btn px-4 py-2.5 font-medium border-b-2 border-transparent text-brand-100 hover:text-white flex items-center space-x-2 whitespace-nowrap">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        <span>근무기록 관리/수정</span>
+                    </button>
+                    <button onclick="switchTab('admin')" id="tab-btn-admin" class="tab-btn px-4 py-2.5 font-medium border-b-2 border-transparent text-brand-100 hover:text-white flex items-center space-x-2 whitespace-nowrap">
+                        <i class="fa-solid fa-users-gear"></i>
+                        <span>학생 명단 관리</span>
+                    </button>
+                `;
+
+                populatePrintStudentSelect();
+                populateRecordStudentFilter();
+                renderAdminStudentList();
+                switchTab('print');
+            }
+        }
+
+        function handleLogout() {
+            if (confirm('로그아웃 하시겠습니까?')) {
+                currentUserSession = null;
+                document.getElementById('login-student-pw').value = '';
+                document.getElementById('login-admin-pw').value = '';
+                document.getElementById('app-screen').classList.add('hidden');
+                document.getElementById('login-screen').classList.remove('hidden');
+            }
+        }
+
+        function setupStudentClockView() {
+            if (!currentUserSession || currentUserSession.role !== 'student') return;
+
+            document.getElementById('clock-student-id').textContent = `학번: ${currentUserSession.studentId}`;
+            document.getElementById('clock-student-dept').textContent = `소속: ${currentUserSession.dept}`;
+
+            updateStudentStatusBadge();
+            renderStudentLogsTable();
+        }
+
+        function updateStudentStatusBadge() {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const myTodayLogs = currentLogs.filter(l => l.studentId === currentUserSession.studentId && l.date === todayStr);
+
+            const badge = document.getElementById('clock-status-badge');
+            const lastLog = myTodayLogs[myTodayLogs.length - 1];
+
+            if (!lastLog) {
+                badge.textContent = '오늘 미출근';
+                badge.className = 'font-bold text-sm text-slate-500';
+            } else if (lastLog.type === '출근') {
+                badge.textContent = `근무 중 (${lastLog.time} 출근)`;
+                badge.className = 'font-bold text-sm text-emerald-600';
+            } else {
+                badge.textContent = `퇴근 완료 (${lastLog.time} 퇴근)`;
+                badge.className = 'font-bold text-sm text-rose-600';
+            }
+        }
+
+        function handleClockAction(type) {
+            if (!currentUserSession || currentUserSession.role !== 'student') return;
+
+            const noteInput = document.getElementById('clock-note');
+            const noteText = noteInput.value.trim();
+
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
+
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const timeStr = `${hours}:${minutes}`;
+
+            const newLog = {
+                id: 'log_' + Date.now(),
+                studentId: currentUserSession.studentId,
+                dept: currentUserSession.dept,
+                type: type,
+                timestamp: `${dateStr} ${hours}:${minutes}:${seconds}`,
+                date: dateStr,
+                time: timeStr,
+                note: noteText || (type === '출근' ? '출근 처리' : '퇴근 처리')
+            };
+
+            currentLogs.unshift(newLog);
+            localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(currentLogs));
+
+            noteInput.value = '';
+            updateStudentStatusBadge();
+            renderStudentLogsTable();
+
+            alert(`${type} 처리가 성공적으로 기록되었습니다. (${timeStr})`);
+        }
+
+        function renderStudentLogsTable() {
+            const tbody = document.getElementById('student-my-logs-tbody');
+            tbody.innerHTML = '';
+
+            const myLogs = currentLogs.filter(l => l.studentId === currentUserSession.studentId).slice(0, 10);
+
+            if (myLogs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-slate-400">출/퇴근 내역이 아직 없습니다.</td></tr>`;
+                return;
+            }
+
+            myLogs.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+
+                const badgeColor = log.type === '출근' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800';
+
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500">${log.timestamp}</td>
+                    <td class="py-2.5 px-3 font-bold font-mono text-slate-800">${log.studentId}</td>
+                    <td class="py-2.5 px-3 text-slate-600">${log.dept}</td>
+                    <td class="py-2.5 px-3">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${log.type}</span>
+                    </td>
+                    <td class="py-2.5 px-3 text-slate-500 truncate max-w-[180px]">${log.note || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function populatePrintStudentSelect() {
+            const printStudentSelect = document.getElementById('print-student-select');
+            printStudentSelect.innerHTML = '';
+
+            currentStudents.forEach(st => {
+                const opt = document.createElement('option');
+                opt.value = st.id;
+                opt.textContent = `${st.id} (${st.dept})`;
+                printStudentSelect.appendChild(opt);
+            });
+        }
+
+        function renderA4Sheet() {
+            const monthVal = document.getElementById('print-month-select').value;
+            const studentId = document.getElementById('print-student-select').value;
+            const hourlyWage = parseInt(document.getElementById('hourly-wage-input').value) || 0;
+
+            const student = currentStudents.find(s => s.id === studentId);
+            if (!student || !monthVal) return;
+
+            const [yearStr, monthStr] = monthVal.split('-');
+            const year = parseInt(yearStr);
+            const month = parseInt(monthStr);
+
+            document.getElementById('a4-dept').textContent = student.dept;
+            document.getElementById('a4-month').textContent = `${year}년 ${month}월`;
+            document.getElementById('a4-student-id').textContent = student.id;
+            document.getElementById('a4-sign-student-id').textContent = student.id;
+
+            const lastDay = new Date(year, month, 0).getDate();
+            document.getElementById('a4-submit-date').textContent = `${year}년 ${month}월 ${lastDay}일`;
+
+            const studentLogs = currentLogs.filter(l => {
+                if (l.studentId !== student.id) return false;
+                const logDate = new Date(l.date);
+                return logDate.getFullYear() === year && (logDate.getMonth() + 1) === month;
+            });
+
+            const daysInMonth = new Date(year, month, 0).getDate();
+            const tbody = document.getElementById('a4-tbody');
+            tbody.innerHTML = '';
+
+            let totalMinutes = 0;
+            let totalWorkDays = 0;
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dayPadded = String(d).padStart(2, '0');
+                const dateString = `${year}-${monthStr}-${dayPadded}`;
+                const dayOfWeek = new Date(year, month - 1, d).getDay();
+                const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+
+                const dayLogs = studentLogs.filter(l => l.date === dateString);
+                const clockIn = dayLogs.find(l => l.type === '출근');
+                const clockOut = dayLogs.find(l => l.type === '퇴근');
+
+                let inTimeText = '-';
+                let outTimeText = '-';
+                let dailyHoursText = '-';
+                let noteText = '';
+                let isChecked = false;
+
+                if (clockIn) {
+                    inTimeText = clockIn.time;
+                    noteText = clockIn.note || '';
+                }
+                if (clockOut) {
+                    outTimeText = clockOut.time;
+                    if (clockOut.note && clockOut.note !== '퇴근 처리') {
+                        noteText += (noteText ? ' / ' : '') + clockOut.note;
+                    }
+                }
+
+                if (clockIn && clockOut) {
+                    const [inH, inM] = clockIn.time.split(':').map(Number);
+                    const [outH, outM] = clockOut.time.split(':').map(Number);
+                    
+                    let diffM = (outH * 60 + outM) - (inH * 60 + inM);
+                    if (diffM > 0) {
+                        totalMinutes += diffM;
+                        totalWorkDays++;
+                        const h = Math.floor(diffM / 60);
+                        const m = diffM % 60;
+                        dailyHoursText = m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
+                        isChecked = true;
+                    }
+                }
+
+                const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+                const trClass = isWeekend ? 'bg-slate-50/50' : '';
+
+                const tr = document.createElement('tr');
+                tr.className = trClass;
+                tr.innerHTML = `
+                    <td class="border border-black py-0.5 px-1">${d}</td>
+                    <td class="border border-black py-0.5 px-1 ${dayOfWeek === 0 ? 'text-red-600' : dayOfWeek === 6 ? 'text-blue-600' : ''}">${dayNames[dayOfWeek]}</td>
+                    <td class="border border-black py-0.5 px-1 font-mono">${inTimeText}</td>
+                    <td class="border border-black py-0.5 px-1 font-mono">${outTimeText}</td>
+                    <td class="border border-black py-0.5 px-1">${dailyHoursText}</td>
+                    <td class="border border-black py-0.5 px-1 text-left text-[11px]">${noteText}</td>
+                    <td class="border border-black py-0.5 px-1 text-center">${isChecked ? '확인' : ''}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+
+            const totalH = Math.floor(totalMinutes / 60);
+            const totalM = totalMinutes % 60;
+            const decimalHours = (totalMinutes / 60);
+
+            const scholarshipTotal = Math.round(decimalHours * hourlyWage);
+
+            document.getElementById('a4-total-hours').textContent = totalM > 0 ? `${totalH}시간 ${totalM}분` : `${totalH}시간`;
+            document.getElementById('a4-summary-days').textContent = `총 근무일수: ${totalWorkDays}일`;
+
+            document.getElementById('calc-total-hours-str').textContent = `${totalH}시간 ${totalM}분 (${decimalHours.toFixed(1)}시간)`;
+            document.getElementById('calc-wage-str').textContent = `${hourlyWage.toLocaleString()}원`;
+            document.getElementById('calc-scholarship-total').textContent = `${scholarshipTotal.toLocaleString()}원`;
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('main > section').forEach(sec => sec.classList.add('hidden'));
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = 'tab-btn px-4 py-2.5 font-medium border-b-2 border-transparent text-brand-100 hover:text-white flex items-center space-x-2 whitespace-nowrap';
+            });
+
+            const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+            if (activeBtn) {
+                activeBtn.className = 'tab-btn px-4 py-2.5 font-medium border-b-2 border-amber-400 text-white flex items-center space-x-2 whitespace-nowrap';
+            }
+
+            if (tabName === 'student') {
+                document.getElementById('view-student').classList.remove('hidden');
+                setupStudentClockView();
+            } else if (tabName === 'print') {
+                document.getElementById('view-print').classList.remove('hidden');
+                renderA4Sheet();
+            } else if (tabName === 'records') {
+                document.getElementById('view-records').classList.remove('hidden');
+                renderAdminRecordsTable();
+            } else if (tabName === 'admin') {
+                document.getElementById('view-admin').classList.remove('hidden');
+            }
+        }
+
+        function populateRecordStudentFilter() {
+            const selectFilter = document.getElementById('record-student-filter');
+            const selectModal = document.getElementById('record-input-student');
+
+            selectFilter.innerHTML = '<option value="ALL">전체 학생 조회</option>';
+            selectModal.innerHTML = '';
+
+            currentStudents.forEach(st => {
+                const opt1 = document.createElement('option');
+                opt1.value = st.id;
+                opt1.textContent = `${st.id} (${st.dept})`;
+                selectFilter.appendChild(opt1);
+
+                const opt2 = document.createElement('option');
+                opt2.value = st.id;
+                opt2.textContent = `${st.id} (${st.dept})`;
+                selectModal.appendChild(opt2);
+            });
+        }
+
+        function renderAdminRecordsTable() {
+            const studentFilter = document.getElementById('record-student-filter').value;
+            const monthFilter = document.getElementById('record-month-filter').value;
+
+            const [yearStr, monthStr] = monthFilter.split('-');
+            const year = parseInt(yearStr);
+            const month = parseInt(monthStr);
+
+            const tbody = document.getElementById('admin-records-tbody');
+            tbody.innerHTML = '';
+
+            const filteredLogs = currentLogs.filter(log => {
+                if (studentFilter !== 'ALL' && log.studentId !== studentFilter) return false;
+                const logDate = new Date(log.date);
+                return logDate.getFullYear() === year && (logDate.getMonth() + 1) === month;
+            });
+
+            if (filteredLogs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-slate-400">해당 조건의 출퇴근 기록이 없습니다.</td></tr>`;
+                return;
+            }
+
+            filteredLogs.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+
+                const badgeColor = log.type === '출근' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800';
+
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 font-mono text-slate-700 font-medium">${log.timestamp}</td>
+                    <td class="py-2.5 px-3 font-bold font-mono text-slate-800">${log.studentId} (${log.dept})</td>
+                    <td class="py-2.5 px-3">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${log.type}</span>
+                    </td>
+                    <td class="py-2.5 px-3 text-slate-600 truncate max-w-[200px]">${log.note || '-'}</td>
+                    <td class="py-2.5 px-3 text-right space-x-1">
+                        <button onclick="openEditRecordModal('${log.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium">수정</button>
+                        <button onclick="deleteRecord('${log.id}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded text-[11px] font-medium">삭제</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openAddRecordModal() {
+            document.getElementById('edit-record-id').value = '';
+            document.getElementById('record-modal-title').textContent = '근무 기록 수동 입력 (출근/퇴근 자동 생성)';
+            
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('record-input-date').value = today;
+            document.getElementById('record-input-in').value = '09:00';
+            document.getElementById('record-input-out').value = '13:00';
+            document.getElementById('record-input-note').value = '담당자 수동 보정';
+
+            document.getElementById('record-modal').classList.remove('hidden');
+        }
+
+        function openEditRecordModal(logId) {
+            const log = currentLogs.find(l => l.id === logId);
+            if (!log) return;
+
+            document.getElementById('edit-record-id').value = log.id;
+            document.getElementById('record-modal-title').textContent = '출/퇴근 단일 항목 수정';
+            document.getElementById('record-input-student').value = log.studentId;
+            document.getElementById('record-input-date').value = log.date;
+
+            if (log.type === '출근') {
+                document.getElementById('record-input-in').value = log.time;
+                document.getElementById('record-input-out').value = '';
+            } else {
+                document.getElementById('record-input-in').value = '';
+                document.getElementById('record-input-out').value = log.time;
+            }
+
+            document.getElementById('record-input-note').value = log.note || '';
+            document.getElementById('record-modal').classList.remove('hidden');
+        }
+
+        function closeRecordModal() {
+            document.getElementById('record-modal').classList.add('hidden');
+        }
+
+        function saveRecordFromModal() {
+            const editId = document.getElementById('edit-record-id').value;
+            const studentId = document.getElementById('record-input-student').value;
+            const dateStr = document.getElementById('record-input-date').value;
+            const timeIn = document.getElementById('record-input-in').value;
+            const timeOut = document.getElementById('record-input-out').value;
+            const noteText = document.getElementById('record-input-note').value.trim();
+
+            const student = currentStudents.find(s => s.id === studentId);
+            if (!student || !dateStr) {
+                alert('학생과 날짜를 올바르게 지정해주세요.');
+                return;
+            }
+
+            if (editId) {
+                const logIndex = currentLogs.findIndex(l => l.id === editId);
+                if (logIndex !== -1) {
+                    const existingLog = currentLogs[logIndex];
+                    const newTime = existingLog.type === '출근' ? (timeIn || existingLog.time) : (timeOut || existingLog.time);
+                    currentLogs[logIndex] = {
+                        ...existingLog,
+                        studentId: student.id,
+                        dept: student.dept,
+                        date: dateStr,
+                        time: newTime,
+                        timestamp: `${dateStr} ${newTime}:00`,
+                        note: noteText
+                    };
+                }
+            } else {
+                if (timeIn) {
+                    currentLogs.unshift({
+                        id: 'log_' + Date.now() + '_in',
+                        studentId: student.id,
+                        dept: student.dept,
+                        type: '출근',
+                        date: dateStr,
+                        time: timeIn,
+                        timestamp: `${dateStr} ${timeIn}:00`,
+                        note: noteText || '수동 출근 등록'
+                    });
+                }
+                if (timeOut) {
+                    currentLogs.unshift({
+                        id: 'log_' + Date.now() + '_out',
+                        studentId: student.id,
+                        dept: student.dept,
+                        type: '퇴근',
+                        date: dateStr,
+                        time: timeOut,
+                        timestamp: `${dateStr} ${timeOut}:00`,
+                        note: noteText || '수동 퇴근 등록'
+                    });
+                }
+            }
+
+            localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(currentLogs));
+            closeRecordModal();
+            renderAdminRecordsTable();
+            renderA4Sheet();
+            alert('기록이 수정/저장되었습니다.');
+        }
+
+        function deleteRecord(logId) {
+            if (confirm('이 출퇴근 기록을 삭제하시겠습니까?')) {
+                currentLogs = currentLogs.filter(l => l.id !== logId);
+                localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(currentLogs));
+                renderAdminRecordsTable();
+                renderA4Sheet();
+            }
+        }
+
+        function renderAdminStudentList() {
+            const tbody = document.getElementById('admin-students-tbody');
+            tbody.innerHTML = '';
+
+            currentStudents.forEach(st => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 font-mono font-bold text-slate-800">${st.id}</td>
+                    <td class="py-2.5 px-3 text-slate-600">${st.dept}</td>
+                    <td class="py-2.5 px-3 text-right">
+                        <button onclick="deleteStudent('${st.id}')" class="text-rose-600 hover:text-rose-800 p-1">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openAddStudentModal() {
+            document.getElementById('student-modal').classList.remove('hidden');
+        }
+
+        function closeAddStudentModal() {
+            document.getElementById('student-modal').classList.add('hidden');
+        }
+
+        function saveNewStudent() {
+            const id = document.getElementById('new-student-id').value.trim();
+            const dept = document.getElementById('new-student-dept').value.trim();
+
+            if (!id || !dept) {
+                alert('학번과 소속 학과를 모두 입력해 주세요.');
+                return;
+            }
+
+            if (currentStudents.some(s => s.id === id)) {
+                alert('이미 등록된 학번입니다.');
+                return;
+            }
+
+            currentStudents.push({ id, dept });
+            localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(currentStudents));
+
+            populateDeptDropdown();
+            populatePrintStudentSelect();
+            renderAdminStudentList();
+            closeAddStudentModal();
+
+            document.getElementById('new-student-id').value = '';
+            document.getElementById('new-student-dept').value = '';
+            alert(`학번 [${id}] 정보가 등록되었습니다.`);
+        }
+
+        function deleteStudent(id) {
+            if (confirm(`학번 [${id}] 학생을 명단에서 삭제하시겠습니까?`)) {
+                currentStudents = currentStudents.filter(s => s.id !== id);
+                localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(currentStudents));
+                populateDeptDropdown();
+                populatePrintStudentSelect();
+                renderAdminStudentList();
+            }
+        }
+
+        function resetToSampleData() {
+            if (confirm('모든 데이터를 기본 89명 학생 명단으로 초기화하시겠습니까?')) {
+                localStorage.removeItem(STORAGE_KEY_STUDENTS);
+                localStorage.removeItem(STORAGE_KEY_LOGS);
+                loadLocalStorageData();
+                populateDeptDropdown();
+                populatePrintStudentSelect();
+                renderAdminStudentList();
+                alert('데이터 초기화가 완료되었습니다.');
+            }
+        }
+    </script>
+</body>
+</html>
